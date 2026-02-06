@@ -1,5 +1,4 @@
 import { useState, useRef, useCallback, useMemo } from 'react'
-import { Minus, Plus } from 'lucide-react'
 import { useLanguage } from '@/lib/language-context'
 
 // Pricing tiers: price in DKK for given minutes
@@ -207,32 +206,10 @@ export function DurationDial({ onContinue }: DurationDialProps) {
         </div>
       </div>
 
-      {/* +/- buttons + price */}
-      <div className="flex items-center gap-5 mt-1">
-        <button
-          onClick={decrement}
-          disabled={minutes <= MIN_MINUTES}
-          className="w-10 h-10 rounded-full border-2 border-gray-300 flex items-center justify-center hover:bg-gray-100 transition-colors disabled:opacity-30"
-        >
-          <Minus className="h-4 w-4 text-gray-500" />
-        </button>
-        <div className="text-center min-w-[80px]">
-          <p className="text-2xl font-bold text-gray-700">{price} DKK</p>
-          <p className="text-[10px] text-gray-400">{t('duration.vat')}</p>
-        </div>
-        <button
-          onClick={increment}
-          disabled={minutes >= MAX_MINUTES}
-          className="w-10 h-10 rounded-full border-2 border-gray-300 flex items-center justify-center hover:bg-gray-100 transition-colors disabled:opacity-30"
-        >
-          <Plus className="h-4 w-4 text-gray-500" />
-        </button>
-      </div>
-
       {/* Continue button */}
       <button
         onClick={() => onContinue(minutes, price)}
-        className="mt-5 w-full max-w-[300px] py-3.5 rounded-xl bg-gray-700 text-white font-semibold text-base hover:bg-gray-800 active:scale-[0.97] transition-all flex items-center justify-center gap-2"
+        className="mt-5 w-full max-w-[300px] py-3.5 rounded-xl bg-green-600 text-white font-semibold text-base hover:bg-green-700 active:scale-[0.97] transition-all flex items-center justify-center gap-2"
       >
         {t('payment.pay')} {price} DKK →
       </button>

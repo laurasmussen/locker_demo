@@ -134,12 +134,7 @@ export function RentFlow({ locker, onComplete }: { locker: Locker; onComplete: (
       <div className="space-y-4">
         {/* Locker info */}
         <div className="text-center mb-2">
-          <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 border-2 border-gray-200">
-            <Lock className="h-7 w-7 text-gray-500" />
-          </div>
-          <h2 className="text-xl font-semibold text-gray-800">{t('duration.title')} {locker.id}</h2>
-          <p className="text-sm text-gray-400 capitalize">{sizeLabel} · {t('duration.zone')} {locker.zone}</p>
-          <p className="text-sm text-gray-500 font-medium mt-1">{t('duration.available')}</p>
+          <h2 className="text-xl font-semibold text-gray-800">{locker.id}</h2>
         </div>
 
         {/* Duration Dial */}
