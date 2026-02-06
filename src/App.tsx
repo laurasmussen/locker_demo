@@ -1,0 +1,21 @@
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { LanguageProvider } from '@/lib/language-context'
+import { HomePage } from '@/pages/HomePage'
+import { LockerPage } from '@/pages/LockerPage'
+import { AdminPage } from '@/pages/AdminPage'
+
+function App() {
+  return (
+    <LanguageProvider>
+      <BrowserRouter basename={import.meta.env.BASE_URL}>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/locker/:lockerId" element={<LockerPage />} />
+          <Route path="/admin" element={<AdminPage />} />
+        </Routes>
+      </BrowserRouter>
+    </LanguageProvider>
+  )
+}
+
+export default App
