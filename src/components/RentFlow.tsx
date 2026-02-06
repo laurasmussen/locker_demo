@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/Spinner'
 import { CardScanner } from '@/components/CardScanner'
 import { MobilePayFlow } from '@/components/MobilePayFlow'
-import { DurationDial, getPrice } from '@/components/DurationDial'
+import { DurationDial } from '@/components/DurationDial'
 import {
   Check,
   CreditCard,
