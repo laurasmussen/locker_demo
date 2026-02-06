@@ -45,6 +45,14 @@ export function getAllSessions(): LockerSession[] {
   return Object.values(sessions)
 }
 
+export function extendSession(lockerId: string, newExpiresAt: string): void {
+  const sessions = getSessions()
+  const session = sessions[lockerId]
+  if (!session) return
+  session.expiresAt = newExpiresAt
+  writeCookie(sessions)
+}
+
 export function removeSession(lockerId: string): void {
   const sessions = getSessions()
   delete sessions[lockerId]

@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
-import { gantnerApi, type Locker } from '@/lib/gantner-api'
-import { getSession, removeSession, updateSessionContact } from '@/lib/session'
+import { gantnerApi, PRICE_PER_HOUR, OVERSTAY_PER_30MIN, type Locker } from '@/lib/gantner-api'
+import { getSession, removeSession, updateSessionContact, extendSession } from '@/lib/session'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/Spinner'
-import { Lock, Unlock, Clock, Timer, Phone, Mail, Share2, Check, UserPlus } from 'lucide-react'
+import { Lock, Unlock, Clock, Timer, Phone, Mail, Share2, Check, UserPlus, Plus, Minus, AlertTriangle, CreditCard } from 'lucide-react'
 import { useLanguage } from '@/lib/language-context'
 
 export function LockerControl({ locker: initialLocker, onSessionEnd }: { locker: Locker; onSessionEnd: () => void }) {
@@ -20,6 +20,11 @@ export function LockerControl({ locker: initialLocker, onSessionEnd }: { locker:
   const [editContact, setEditContact] = useState(false)
   const [phoneInput, setPhoneInput] = useState('')
   const [emailInput, setEmailInput] = useState('')
+  const [extendHours, setExtendHours] = useState(1)
+  const [extending, setExtending] = useState(false)
+  const [extendSuccess, setExtendSuccess] = useState(false)
+  const [isExpired, setIsExpired] = useState(false)
+  const [overstayMinutes, setOverstayMinutes] = useState(0)
 
   const session = getSession(locker.id)
 
@@ -37,8 +42,14 @@ export function LockerControl({ locker: initialLocker, onSessionEnd }: { locker:
     const now = Date.now()
     const diff = end - now
 
-    if (diff <= 0) return t('control.expired')
+    if (diff <= 0) {
+      setIsExpired(true)
+      setOverstayMinutes(Math.ceil(Math.abs(diff) / (1000 * 60)))
+      return t('control.expired')
+    }
 
+    setIsExpired(false)
+    setOverstayMinutes(0)
     const hours = Math.floor(diff / (1000 * 60 * 60))
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
     if (hours > 0) return `${hours}h ${minutes}m ${t('control.remaining')}`
@@ -47,7 +58,7 @@ export function LockerControl({ locker: initialLocker, onSessionEnd }: { locker:
 
   useEffect(() => {
     setTimeLeft(calcTimeLeft())
-    const interval = setInterval(() => setTimeLeft(calcTimeLeft()), 30000)
+    const interval = setInterval(() => setTimeLeft(calcTimeLeft()), 10000) // Check more often for overstay
     return () => clearInterval(interval)
   }, [calcTimeLeft])
 
@@ -98,6 +109,31 @@ export function LockerControl({ locker: initialLocker, onSessionEnd }: { locker:
     setEditContact(false)
   }
 
+  // Calculate overstay charge for display
+  const currentOverstayCharge = isExpired
+    ? Math.ceil(overstayMinutes / 30) * OVERSTAY_PER_30MIN
+    : 0
+  const extensionCost = extendHours * PRICE_PER_HOUR
+  const totalExtendCost = extensionCost + currentOverstayCharge
+
+  const handleExtend = async () => {
+    if (!session) return
+    setExtending(true)
+    try {
+      const result = await gantnerApi.extendRental(locker.id, session.sessionToken, extendHours)
+      // Update session cookie with new expiry
+      extendSession(locker.id, result.locker.rentalInfo!.endTime)
+      setLocker(result.locker)
+      setExtendSuccess(true)
+      setIsExpired(false)
+      setOverstayMinutes(0)
+      setTimeout(() => setExtendSuccess(false), 2500)
+    } catch (e) {
+      console.error('Extend failed:', e)
+    }
+    setExtending(false)
+  }
+
   const isLocked = locker.rentalInfo?.isLocked
 
   if (loading) {
@@ -108,9 +144,9 @@ export function LockerControl({ locker: initialLocker, onSessionEnd }: { locker:
     <div className="space-y-4">
       <div className="text-center mb-2">
         <h2 className="text-xl font-semibold">{t('control.locker')} {locker.id}</h2>
-        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground mt-1">
-          <Timer className="h-3.5 w-3.5" />
-          <span>{timeLeft}</span>
+        <div className={`flex items-center justify-center gap-2 text-sm mt-1 ${isExpired ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
+          {isExpired ? <AlertTriangle className="h-3.5 w-3.5" /> : <Timer className="h-3.5 w-3.5" />}
+          <span>{isExpired ? `${t('control.expired')} · ${overstayMinutes} ${t('control.overstay.min')}` : timeLeft}</span>
         </div>
       </div>
 
@@ -138,6 +174,114 @@ export function LockerControl({ locker: initialLocker, onSessionEnd }: { locker:
               </>
             )}
           </button>
+        </CardContent>
+      </Card>
+
+      {/* Overstay warning */}
+      {isExpired && (
+        <Card className="border-destructive/50 bg-destructive/5">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-destructive/10 rounded-full flex items-center justify-center shrink-0 mt-0.5">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+              </div>
+              <div className="space-y-1">
+                <p className="font-semibold text-destructive">{t('control.overstay.title')}</p>
+                <p className="text-sm text-muted-foreground">
+                  {overstayMinutes} {t('control.overstay.min')}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {t('control.overstay.charge')}: <span className="font-semibold text-destructive">{currentOverstayCharge} DKK</span>
+                  {' '}({t('control.overstay.perBlock')})
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Extend time dial */}
+      <Card className={isExpired ? 'border-warning/50 bg-warning/5' : ''}>
+        <CardContent className="p-4 space-y-3">
+          {isExpired && (
+            <p className="text-xs font-medium text-warning">{t('control.overstay.extendNow')}</p>
+          )}
+          {!isExpired && (
+            <p className="text-sm font-medium flex items-center gap-2">
+              <Timer className="h-4 w-4 text-ocean" />
+              {t('control.extend.title')}
+            </p>
+          )}
+
+          {/* Hour stepper */}
+          <div className="flex items-center justify-center gap-4">
+            <button
+              onClick={() => setExtendHours(h => Math.max(1, h - 1))}
+              className="w-10 h-10 rounded-full border-2 border-border flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-30"
+              disabled={extendHours <= 1}
+            >
+              <Minus className="h-4 w-4" />
+            </button>
+            <div className="text-center min-w-[100px]">
+              <p className="text-3xl font-bold text-ocean">+{extendHours}</p>
+              <p className="text-xs text-muted-foreground">
+                {extendHours === 1 ? t('control.extend.hour') : t('control.extend.hours')}
+              </p>
+            </div>
+            <button
+              onClick={() => setExtendHours(h => Math.min(8, h + 1))}
+              className="w-10 h-10 rounded-full border-2 border-border flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-30"
+              disabled={extendHours >= 8}
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Cost breakdown */}
+          <div className="bg-muted/50 rounded-lg p-3 space-y-1.5 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">{t('control.extend.cost')} (+{extendHours}h)</span>
+              <span className="font-medium">{extensionCost} DKK</span>
+            </div>
+            {currentOverstayCharge > 0 && (
+              <div className="flex justify-between text-destructive">
+                <span>{t('control.extend.overstay')} ({overstayMinutes} min)</span>
+                <span className="font-medium">{currentOverstayCharge} DKK</span>
+              </div>
+            )}
+            <div className="flex justify-between border-t pt-1.5 font-semibold">
+              <span>{t('control.extend.total')}</span>
+              <span className="text-ocean">{totalExtendCost} DKK</span>
+            </div>
+          </div>
+
+          {/* Extend button */}
+          {extendSuccess ? (
+            <div className="flex items-center justify-center gap-2 py-2.5 text-success font-medium">
+              <Check className="h-5 w-5" />
+              {t('control.extend.success')}
+            </div>
+          ) : (
+            <Button
+              variant="ocean"
+              className="w-full"
+              onClick={handleExtend}
+              disabled={extending}
+            >
+              {extending ? (
+                <>{t('control.extend.processing')}</>
+              ) : (
+                <>
+                  <CreditCard className="h-4 w-4 mr-2" />
+                  {t('control.extend.button')} · {totalExtendCost} DKK
+                </>
+              )}
+            </Button>
+          )}
+
+          <p className="text-[10px] text-muted-foreground text-center">
+            {t('control.extend.pspNote')}
+          </p>
         </CardContent>
       </Card>
 

@@ -1,6 +1,10 @@
 // Fake Gantner API integration
 // In production, this would call the actual Gantner lock server
 
+// Pricing: 20 DKK/hr, overstay 15 DKK per started 30-min block
+export const PRICE_PER_HOUR = 20
+export const OVERSTAY_PER_30MIN = 15
+
 export interface Locker {
   id: string
   number: number
@@ -16,6 +20,8 @@ export interface Locker {
     phone?: string
     email?: string
     isLocked: boolean
+    paidAmount: number       // Total amount authorized with PSP
+    overstayCharge: number   // Accumulated overstay fees
   }
 }
 
@@ -90,13 +96,16 @@ export const gantnerApi = {
     if (!locker) return null
     const expires = new Date(session.expiresAt)
     const start = new Date(session.rentedAt)
+    const duration = Math.round((expires.getTime() - start.getTime()) / (1000 * 60 * 60))
     locker.status = 'rented'
     locker.rentalInfo = {
       sessionToken: session.sessionToken,
       startTime: session.rentedAt,
       endTime: session.expiresAt,
-      duration: Math.round((expires.getTime() - start.getTime()) / (1000 * 60 * 60)),
+      duration,
       isLocked: locker.rentalInfo?.isLocked ?? true,
+      paidAmount: locker.rentalInfo?.paidAmount ?? duration * PRICE_PER_HOUR,
+      overstayCharge: locker.rentalInfo?.overstayCharge ?? 0,
     }
     return locker
   },
@@ -119,6 +128,7 @@ export const gantnerApi = {
     const now = new Date()
     const endTime = new Date(now.getTime() + durationHours * 60 * 60 * 1000)
 
+    const amount = durationHours * PRICE_PER_HOUR
     locker.status = 'rented'
     locker.rentalInfo = {
       sessionToken,
@@ -129,9 +139,47 @@ export const gantnerApi = {
       phone: options?.phone,
       email: options?.email,
       isLocked: false, // Starts unlocked so customer can put stuff in
+      paidAmount: amount,
+      overstayCharge: 0,
     }
 
     return { success: true, sessionToken, locker }
+  },
+
+  async extendRental(lockerId: string, sessionToken: string, extraHours: number): Promise<{ success: boolean; locker: Locker; additionalCharge: number }> {
+    await delay(600)
+    const locker = lockers.get(lockerId.toUpperCase())
+    if (!locker || locker.status !== 'rented') {
+      throw new Error('Locker not found or not rented')
+    }
+    if (locker.rentalInfo?.sessionToken !== sessionToken) {
+      throw new Error('Invalid session token')
+    }
+
+    // Calculate overstay if past end time
+    const now = new Date()
+    const currentEnd = new Date(locker.rentalInfo.endTime)
+    let overstayCharge = 0
+    if (now > currentEnd) {
+      const overstayMs = now.getTime() - currentEnd.getTime()
+      const overstayBlocks = Math.ceil(overstayMs / (30 * 60 * 1000)) // per started 30-min block
+      overstayCharge = overstayBlocks * OVERSTAY_PER_30MIN
+    }
+
+    // Extension cost
+    const extensionCost = extraHours * PRICE_PER_HOUR
+    const additionalCharge = extensionCost + overstayCharge
+
+    // Extend from current end time (or from now if overstaying)
+    const extendFrom = now > currentEnd ? now : currentEnd
+    const newEnd = new Date(extendFrom.getTime() + extraHours * 60 * 60 * 1000)
+
+    locker.rentalInfo.endTime = newEnd.toISOString()
+    locker.rentalInfo.duration += extraHours
+    locker.rentalInfo.paidAmount += additionalCharge
+    locker.rentalInfo.overstayCharge += overstayCharge
+
+    return { success: true, locker, additionalCharge }
   },
 
   async unlockLocker(lockerId: string, sessionToken: string): Promise<{ success: boolean }> {

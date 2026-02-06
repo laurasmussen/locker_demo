@@ -3,6 +3,7 @@ import { LanguageProvider } from '@/lib/language-context'
 import { HomePage } from '@/pages/HomePage'
 import { LockerPage } from '@/pages/LockerPage'
 import { AdminPage } from '@/pages/AdminPage'
+import { DemoPage } from '@/pages/DemoPage'
 
 function App() {
   return (
@@ -11,6 +12,7 @@ function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/locker/:lockerId" element={<LockerPage />} />
+          <Route path="/demo" element={<DemoPage />} />
           <Route path="/admin" element={<AdminPage />} />
         </Routes>
       </BrowserRouter>
