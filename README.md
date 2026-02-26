@@ -2,7 +2,7 @@
 
 Interactive prototype for self-service locker rental kiosks at Den Blaa Planet aquarium in Copenhagen. Customers scan a QR code on a physical locker, choose a duration, pay, and get instant lock/unlock control from their phone.
 
-**Live demo:** https://laurasmussen.github.io/locker_demo/demo
+**Live demo:** https://laurasmussen.github.io/locker_demo
 
 ---
 
