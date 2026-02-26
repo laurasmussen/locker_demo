@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useLanguage } from '@/lib/language-context'
 import { PaymentMethodSelector } from '@/components/PaymentMethodSelector'
 import { ArrowLeft } from 'lucide-react'
 
@@ -22,7 +21,6 @@ export function PaymentStep({
   onCardPaymentSelected,
   onMobilePaySelected,
 }: PaymentStepProps) {
-  const { t } = useLanguage()
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(null)
 
   const handleMethodSelect = (method: PaymentMethod) => {
